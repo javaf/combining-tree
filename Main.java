@@ -2,7 +2,7 @@ import java.util.*;
 
 class Main {
   static Deque<Integer> queue;
-  static ArrayQueue<Integer> concurrentQueue;
+  static CombiningTree<Integer> concurrentQueue;
   static List<Integer>[] deqValues;
   static int TH = 10, NUM = 1000;
 
@@ -67,7 +67,7 @@ class Main {
   @SuppressWarnings("unchecked")
   static void testThreads(boolean safe) {
     queue = new ArrayDeque<>();
-    concurrentQueue = new ArrayQueue<>(TH*NUM);
+    concurrentQueue = new CombiningTree<>(TH*NUM);
     deqValues = new List[TH];
     for (int i=0; i<TH; i++)
       deqValues[i] = new ArrayList<>();
