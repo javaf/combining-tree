@@ -32,6 +32,7 @@ class CombiningTree<T> {
   public CombiningTree(int depth, int ary) {
     Node<T>[] parent = createNodes(1, ary);
     root = parent[0];
+    leaf = parent;
     for (int i=1; i<depth; i++) {
       int n = (int) Math.pow(ary, i);
       leaf = createNodes(n, ary);

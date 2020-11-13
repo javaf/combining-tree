@@ -31,27 +31,36 @@ tryDeq():
 
 ```bash
 ## OUTPUT
-Starting 10 threads with sequential queue
-2: failed enq
-5: failed deq
-6: failed deq
-7: failed deq
-8: failed deq
-1: failed deq
-4: failed deq
-9: failed deq
-1: dequeued 0/1000 values
-2: dequeued 0/1000 values
-4: dequeued 0/1000 values
-5: dequeued 698/1000 values
-6: dequeued 0/1000 values
-7: dequeued 0/1000 values
-8: dequeued 0/1000 values
-9: dequeued 0/1000 values
-Was LIFO? false
+3-ary 3-depth Combining tree.
+Starting 25 threads doing increments ...
+30: done in 51ms
+14: done in 60ms
+13: done in 68ms
+23: done in 53ms
+12: done in 56ms
+21: done in 54ms
+32: done in 56ms
+31: done in 56ms
+22: done in 54ms
+28: done in 7831ms
+11: done in 7836ms
+10: done in 7838ms
+19: done in 7833ms
+20: done in 7833ms
+29: done in 7831ms
+24: done in 8165ms
+33: done in 8160ms
+25: done in 8165ms
+16: done in 8167ms
+34: done in 8159ms
+15: done in 8167ms
+26: done in 11970ms
+17: done in 11972ms
+27: done in 12239ms
+18: done in 12241ms
+Total: 2500
 
-Starting 10 threads with array queue
-Was LIFO? true
+Was valid? true
 ```
 
 See [ArrayQueue.java] for code, [Main.java] for test, and [repl.it] for output.

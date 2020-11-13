@@ -24,7 +24,7 @@ class Node<T> {
   // FREE: indicates that values are still being inserted
   // PUSHING: node is full, combined value being pushed
   // PULLED: pulled value from parent being given to threads
-  // TIMEOUT: maximum time active thread waits for node to fill
+  // TIMEOUT: max time active thread waits for node to fill
   // parent: parent node
   // state: either FREE, PUSHING, or PULLING
   // count: number of values in node
@@ -60,16 +60,18 @@ class Node<T> {
 
   // Gets current value, and then updates it.
   // x: value to OP (accumulate), op: binary operator
-  // 1. Perform get & op based on 3 possible cases.
-  // 1a. Root node
-  // 1b. Active thread (first to visit node)
-  // 1c. Passive thread (visits later)
+  // 1. Wait until node is free.
+  // 2. Perform get & op based on 3 possible cases.
+  // 2a. Root node
+  // 2b. Active thread (first to visit node)
+  // 2c. Passive thread (visits later)
   public synchronized T getAndOp(T x,
   BinaryOperator<T> op)
   throws InterruptedException {
-    if (parent==null) return getAndOpRoot(x, op); // 1a
-    if (count==0) return getAndOpActive(x, op);   // 1b
-    return getAndOpPassive(x, op); // 1c
+    while (state!=FREE || count==size) wait(); // 1
+    if (parent==null) return getAndOpRoot(x, op); // 2a
+    if (count==0) return getAndOpActive(x, op);   // 2b
+    return getAndOpPassive(x, op); // 2c
   }
 
   // Performs get & op for root node.
@@ -108,7 +110,8 @@ class Node<T> {
     T r = parent.getAndOp(a, op); // 5
     distribute(r, op); // 6
     state = PULLING;   // 7
-    count--;  // 8
+    notifyAll();       // 7
+    decrementCount();  // 8
     return r; // 9
   }
 
@@ -124,7 +127,7 @@ class Node<T> {
   throws InterruptedException {
     int i = insert(x); // 1
     while (state!=PULLING) wait(); // 2
-    if (--count==0) state = FREE;  // 3, 4
+    decrementCount(); // 3, 4
     return value[i]; // 5
   }
 
@@ -133,16 +136,16 @@ class Node<T> {
   // x: value to insert
   // 1. Wait unit node is free.
   // 2. Get index to place value in.
-  // 3. Increment number of values in node.
-  // 4. Place the value.
+  // 3. Place the value.
+  // 4. Increment number of values in node.
   // 5. If node is full, notify active thread.
   // 6. Return index where value was placed.
   public synchronized int insert(T x)
   throws InterruptedException {
     while (state!=FREE) wait(); // 1
-    int i = count++; // 2, 3
-    value[i] = x;    // 4
-    if (count==size) notifyAll(); // 5
+    int i = count;    // 2
+    value[i] = x;     // 3
+    incrementCount(); // 4, 5
     return i; // 6
   }
 
@@ -173,6 +176,22 @@ class Node<T> {
     } // 3
   }
 
+  // Increment count once done with insertion.
+  // 1. Increment count.
+  // 2. If node is full, notify active thread.
+  private synchronized void incrementCount() {
+    if (++count<size) return; // 1
+    notifyAll(); // 2
+  }
+
+  // Decrement count once done with distribution.
+  // 1. Decrement count.
+  // 2. If count is zero, node is free.
+  private synchronized void decrementCount() {
+    if (--count>0) return; // 1
+    state = FREE; // 2
+    notifyAll();  // 2
+  }
 
   // Wait until node is full, or timeout.
   // 1. Get start time.
