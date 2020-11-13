@@ -1,32 +1,80 @@
-Array queue is a bounded lock-based FIFO queue using
-an array. It uses 2 separate locks for head and tail.
+A Combining Tree is an N-ary tree of nodes, that follows
+software combining to reduce memory contention while
+updating a shared value.
+
+The shared value is placed at the root of the tree, and
+threads perfrom `getAndOp()` at the leaf nodes. Each leaf
+node handles N threads. The combined value is then
+propagated up the tree by an active thread. There can be
+several active threads, but eventually one active thread
+updates the root node. It then shares this message to all
+other threads behind it.
+
+This was contention at a single memory location is avoided.
+However, i guess that such a design is normally useful
+only in hardware, as it becomes too slow in software.
+Useful for educational purposes.
 
 ```java
-enq():
-1. Lock tail.
-2. Try enq.
-3. Unlock tail.
+CombiningTree.getAndOp(x, op):
+Gets current value, and then updates it.
+x: value to OP with, op: binary op
+1. Select leaf index using thread id.
+2. Perform get & op at desired leaf.
 ```
 
 ```java
-deq():
-1. Lock head.
-2. Try deq.
-3. Unlock head.
+CombiningTree.getAndOp(x, op, i):
+Gets current value, and then updates it.
+x: value to OP with, op: binary op, i: leaf index
+1. Perform get & op at desired leaf (ensure in limit).
 ```
 
 ```java
-tryEnq():
-1. Ensure queue is not full
-2. Save data at tail.
-3. Increment tail.
+Node.getAndOp(x, op)
+Gets current value, and then updates it.
+x: value to OP (accumulate), op: binary operator
+1. Wait until node is free.
+2. Perform get & op based on 3 possible cases.
+2a. Root node
+2b. Active thread (first to visit node)
+2c. Passive thread (visits later)
 ```
 
 ```java
-tryDeq():
-1. Ensure queue is not empty.
-2. Return data at head.
-3. Increment head.
+Node.getAndOpRoot(x, op)
+Performs get & op for root node.
+x: value to OP (accumulate), op: binary operator
+1. Get old value, by combining (a).
+2. Empty the node.
+3. Insert a OP x
+3. Return old value.
+```
+
+```java
+Node.getAndOpActive(x, op)
+Performs get & op for active thread.
+x: value to OP (accumulate), op: binary operator
+1. Insert value.
+2. Wait until node is full, or timeout.
+3. We have the values, so start pushing.
+4. Combine values into one with OP.
+5. Push combined value to parent.
+6. Distribute recieved value for all threads.
+7. Start the pulling process.
+8. Decrement count (we have our pulled value).
+9. Return pulled value.
+```
+
+```java
+Node.getAndOpPassive(x, op)
+Performs get & op for passive thread.
+x: value to OP (accumulate), op: binary operator
+1. Insert value.
+2. Wait until active thread has pulled value.
+3. Decrement count, one pulled value processed.
+4. If count is 0, the node is free.
+5. Return value of this thread.
 ```
 
 ```bash
@@ -63,11 +111,12 @@ Total: 2500
 Was valid? true
 ```
 
-See [ArrayQueue.java] for code, [Main.java] for test, and [repl.it] for output.
+See [CombiningTree.java], [Node.java] for code, [Main.java] for test, and [repl.it] for output.
 
-[ArrayQueue.java]: https://repl.it/@wolfram77/array-queue#ArrayQueue.java
-[Main.java]: https://repl.it/@wolfram77/array-queue#Main.java
-[repl.it]: https://array-queue.wolfram77.repl.run
+[CombiningTree.java]: https://repl.it/@wolfram77/combining-tree#CombiningTree.java
+[Node.java]: https://repl.it/@wolfram77/combining-tree#Node.java
+[Main.java]: https://repl.it/@wolfram77/combining-tree#Main.java
+[repl.it]: https://combining-tree.wolfram77.repl.run
 
 
 ### references
