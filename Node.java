@@ -1,95 +1,100 @@
+import java.util.function.*;
+
+
 class Node<T> {
+  static final int FREE = 0;
+  static final int PUSHING = 1;
+  static final int PULLING = 2;
+  static final long TIMEOUT = 100;
   Node<T> parent;
-  boolean locked;
-  Status status;
-  T value1;
-  T value2;
-  T result;
+  int state;
+  int count;
+  T[] value;
+  int size;
 
-  public Node() {
-    status = Status.ROOT;
-  }
-
-  public Node(Node<T> par) {
-    parent = par;
-    status = Status.IDLE;
-  }
-
-  // 1. Lock head.
-  // 2. Try deq.
-  // 3. Unlock head.
-  public synchronized boolean precombine()
-    throws InterruptedException {
-    while (locked) wait();
-    switch (status) {
-      case IDLE:
-        status = Status.FIRST;
-        return true;
-      case FIRST:
-        locked = true;
-        status = Status.SECOND;
-        return false;
-      case ROOT:
-        return false;
-      default:
-        throw new IllegalStateException(status+"");
-    }
-  }
-
-  // 1. Ensure queue is not full
-  // 2. Save data at tail.
-  // 3. Increment tail.
-  public synchronized T combine(T combined)
-    throws InterruptedException {
-    while (locked) wait();
-    locked = true;
-    value1 = combined;
-    switch (status) {
-      case FIRST:
-        return value1;
-      case SECOND:
-        return value1 + value2;
-      default:
-        throw new IllegalStateException(status+"");
-    }
-  }
   
-  // 1. Ensure queue is not empty.
-  // 2. Return data at head.
-  // 3. Increment head.
-  public synchronized T op(T combined) {
-    switch (status) {
-      case ROOT:
-        T prior = result;
-        result += combined;
-        return prior;
-      case SECOND:
-        value2 = combined;
-        locked = false;
-        notifyAll(); // wake up waiting threads
-        while (status != Status.RESULT) wait();
-        locked = false;
-        notifyAll();
-        status = Status.IDLE;
-        return result;
-      default:
-        throw new IllegalStateException(status+"");
+  public Node() {
+    this(2);
+  }
+
+  @SuppressWarnings("unchecked")
+  public Node(int n) {
+    value = (T[]) new Object[n];
+    parent = null;
+    state = FREE;
+    count = 0;
+    size = n;
+  }
+
+
+  public synchronized T getAndOp(T x, BinaryOperator<T> op)
+  throws InterruptedException {
+    if (parent==null) return getAndOpRoot(x, op);
+    if (count==0) return getAndOpActive(x, op);
+    return getAndOpPassive(x, op);
+  }
+
+  private synchronized T getAndOpRoot(T x, BinaryOperator<T> op)
+  throws InterruptedException {
+    T a = combine(op);
+    count = 0;
+    insert(op.apply(a, x));
+    return a;
+  }
+
+  private synchronized T getAndOpActive(T x, BinaryOperator<T> op)
+  throws InterruptedException {
+    insert(x);
+    waitUntilFull(TIMEOUT);
+    state = PUSHING;
+    T a = combine(op);
+    T r = parent.getAndOp(a, op);
+    distribute(r, op);
+    state = PULLING;
+    return r;
+  }
+
+  private synchronized T getAndOpPassive(T x, BinaryOperator<T> op)
+  throws InterruptedException {
+    int i = insert(x);
+    while (state!=PULLING) wait();
+    if (--count==0) state = FREE;
+    return value[i];
+  }
+
+
+  public synchronized int insert(T x)
+  throws InterruptedException {
+    while (state!=FREE) wait();
+    int i = count++;
+    value[i] = x;
+    if (count==size) notifyAll();
+    return i;
+  }
+
+
+  public synchronized T combine(BinaryOperator<T> op) {
+    T a = value[0];
+    for (int i=1; i<count; i++)
+      a = op.apply(a, value[i]);
+    return a;
+  }
+
+  public synchronized void distribute(T r, BinaryOperator<T> op) {
+    for (int i=0; i<count; i++) {
+      value[i] = r;
+      r = op.apply(r, value[i]);
     }
   }
 
-  public synchronized void distribute(int prior) {
-    switch (status) {
-      case FIRST:
-        status = Status.IDLE;
-        locked = false;
-        break;
-      case SECOND:
-        result = prior + value1;
-        status = Status.RESULT;
-        break;
-      default:
-        throw new IllegalStateException(status+"");
+
+  private void waitUntilFull(long w)
+  throws InterruptedException {
+    long t0 = System.currentTimeMillis();
+    while (count < size) {
+      wait(w);
+      long t = System.currentTimeMillis();
+      w -= t - t0;
     }
-    notifyAll();
   }
 }
