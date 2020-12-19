@@ -15,6 +15,11 @@ However, i guess that such a design is normally useful
 only in hardware, as it becomes too slow in software.
 Useful for educational purposes.
 
+> **Course**: [Concurrent Data Structures], Monsoon 2020\
+> **Taught by**: Prof. Govindarajulu Regeti
+
+[Concurrent Data Structures]: https://github.com/iiithf/concurrent-data-structures
+
 ```java
 CombiningTree.getAndOp(x, op):
 Gets current value, and then updates it.
